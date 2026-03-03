@@ -25,9 +25,7 @@ services:
 
   # Node.js Application Service
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: asb34/goldenscrapper:tagname
     container_name: goldenupload-app
     depends_on:
       db:
