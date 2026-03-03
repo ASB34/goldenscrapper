@@ -26,17 +26,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Key name is required' }, { status: 400 });
     }
 
-    // Validate key name
+    // Validate key name - include Shopify fields
     const validKeys = [
       'etsyApiKey',
-      'shopifyApiKey', 
-      'shopifyApiSecret',
-      'shopifyWebhookSecret',
+      'etsyShopId',
       'prestashopApiKey',
       'prestashopStoreUrl',
-      'aiProvider',
       'openaiApiKey',
-      'zaiApiKey'
+      'shopifyStoreUrl',
+      'shopifyApiKey',
+      'shopifyApiSecret',
+      'shopifyAccessToken'
     ];
 
     if (!validKeys.includes(keyName)) {
@@ -64,25 +64,47 @@ export async function POST(request: NextRequest) {
       console.log('Created settings with ID:', settings.id);
     }
 
-    // Prepare update data
+    // Prepare update data - handle Shopify fields via settings JSON
     const updateData: any = {};
     
     console.log('Key name:', keyName);
     console.log('Value length:', value ? value.length : 'null');
     
-    if (keyName === 'aiProvider') {
-      // AI provider doesn't need encryption
-      updateData.aiProvider = value;
-      console.log('Setting aiProvider to:', value);
-    } else if (value && value.trim()) {
-      // Encrypt the API key
-      console.log('Encrypting API key for:', keyName);
-      updateData[keyName] = encrypt(value.trim());
-      console.log('Encrypted value length:', updateData[keyName].length);
+    // Handle Shopify fields via settings JSON field
+    const shopifyFields = ['shopifyStoreUrl', 'shopifyApiKey', 'shopifyApiSecret', 'shopifyAccessToken'];
+    
+    if (shopifyFields.includes(keyName)) {
+      // Get current settings
+      const currentSettings = await prisma.apiKeys.findFirst({
+        where: { userId: user.id }
+      });
+      
+      const currentShopifySettings = currentSettings?.settings ? 
+        (typeof currentSettings.settings === 'string' ? 
+          JSON.parse(currentSettings.settings) : currentSettings.settings) : {};
+      
+      // Update the specific Shopify field
+      const settingsKey = keyName.charAt(0).toLowerCase() + keyName.slice(1); // camelCase to camelCase
+      if (value && value.trim()) {
+        currentShopifySettings[settingsKey] = encrypt(value.trim());
+      } else {
+        delete currentShopifySettings[settingsKey];
+      }
+      
+      updateData.settings = JSON.stringify(currentShopifySettings);
+      console.log('Updated Shopify settings in JSON');
     } else {
-      // If empty value, set to null to clear the key
-      console.log('Clearing key:', keyName);
-      updateData[keyName] = null;
+      // Handle regular fields
+      if (value && value.trim()) {
+        // Encrypt the API key
+        console.log('Encrypting API key for:', keyName);
+        updateData[keyName] = encrypt(value.trim());
+        console.log('Encrypted value length:', updateData[keyName].length);
+      } else {
+        // If empty value, set to null to clear the key
+        console.log('Clearing key:', keyName);
+        updateData[keyName] = null;
+      }
     }
 
     console.log('Update data keys:', Object.keys(updateData));

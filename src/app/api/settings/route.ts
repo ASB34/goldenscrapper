@@ -17,6 +17,7 @@ export async function GET(request: NextRequest) {
       // Return defaults
       return NextResponse.json({ settings: {
         etsyApiKey: null,
+        shopifyStoreUrl: null,
         shopifyApiKey: null,
         shopifyApiSecret: null,
         shopifyWebhookSecret: null,
@@ -31,6 +32,7 @@ export async function GET(request: NextRequest) {
     // Decrypt keys for the UI (we only need to indicate presence; do not return raw keys unless necessary)
     const result: any = {
       etsyApiKey: settings.etsyApiKey ? true : false,
+      shopifyStoreUrl: settings.shopifyStoreUrl ? true : false,
       shopifyApiKey: settings.shopifyApiKey ? true : false,
       shopifyApiSecret: settings.shopifyApiSecret ? true : false,
       shopifyWebhookSecret: settings.shopifyWebhookSecret ? true : false,
@@ -40,6 +42,21 @@ export async function GET(request: NextRequest) {
       zaiApiKey: settings.zaiApiKey ? true : false,
       aiProvider: settings.aiProvider || 'openai'
     };
+
+    // Check settings JSON for Shopify fields
+    if (settings.settings) {
+      try {
+        const settingsJson = typeof settings.settings === 'string' ? 
+          JSON.parse(settings.settings) : settings.settings;
+        
+        if (settingsJson.shopifyStoreUrl) result.shopifyStoreUrl = true;
+        if (settingsJson.shopifyApiKey) result.shopifyApiKey = true;
+        if (settingsJson.shopifyApiSecret) result.shopifyApiSecret = true;
+        if (settingsJson.shopifyAccessToken) result.shopifyWebhookSecret = true; // Map access token to webhook secret
+      } catch (e) {
+        // Ignore JSON parse errors
+      }
+    }
 
     return NextResponse.json({ settings: result });
   } catch (error) {

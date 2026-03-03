@@ -83,15 +83,16 @@ export async function POST(request: NextRequest) {
             }
             break;
           case 'shopify':
-            if (settings.shopifyApiKey && settings.shopifyApiSecret) {
+            if (settings.shopifyApiKey && settings.shopifyApiSecret && settings.shopifyStoreUrl) {
               const result = await publishToShopify(
                 product, 
                 decrypt(settings.shopifyApiKey),
-                decrypt(settings.shopifyApiSecret)
+                decrypt(settings.shopifyApiSecret),
+                decrypt(settings.shopifyStoreUrl)
               );
               publishResults.shopify = result;
             } else {
-              publishResults.shopify = { success: false, error: 'Shopify credentials not configured' };
+              publishResults.shopify = { success: false, error: 'Shopify credentials not configured (API Key, Access Token, and Store URL required)' };
             }
             break;
           case 'prestashop':
@@ -185,35 +186,35 @@ async function publishToEtsy(product: any, apiKey: string) {
   };
 }
 
-async function publishToShopify(product: any, apiKey: string, apiSecret: string) {
+async function publishToShopify(product: any, apiKey: string, apiSecret: string, shopUrl: string) {
   try {
     console.log('=== SHOPIFY SDK APPROACH ===');
     console.log('Publishing to Shopify:', product.originalTitle);
     
     // Debug raw inputs
     console.log('Raw apiKey length:', apiKey?.length || 0);
-    console.log('Raw apiSecret:', apiSecret);
     console.log('Raw apiSecret length:', apiSecret?.length || 0);
+    console.log('Raw shopUrl:', shopUrl);
     
     // Clean the shop URL and handle potential corruption
-    let shopUrl = apiSecret.replace(/^https?:\/\//, '').replace(/\/$/, '');
+    let cleanedShopUrl = shopUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
     
     // Fix corrupted URLs that might have port or extra characters like :your-32-
-    if (shopUrl.includes(':')) {
-      const parts = shopUrl.split(':');
-      shopUrl = parts[0]; // Take only the domain part before the colon
+    if (cleanedShopUrl.includes(':')) {
+      const parts = cleanedShopUrl.split(':');
+      cleanedShopUrl = parts[0]; // Take only the domain part before the colon
     }
     
     // Remove any non-domain characters (keep only letters, numbers, dots, hyphens)
-    shopUrl = shopUrl.replace(/[^a-zA-Z0-9.-]/g, '');
+    cleanedShopUrl = cleanedShopUrl.replace(/[^a-zA-Z0-9.-]/g, '');
     
-    console.log('Raw apiSecret before cleaning:', apiSecret);
-    console.log('After protocol removal:', shopUrl);
-    console.log('Contains colon?', shopUrl.includes(':'));
-    if (shopUrl.includes(':')) {
-      console.log('Splitting by colon, parts:', shopUrl.split(':'));
+    console.log('Raw shopUrl before cleaning:', shopUrl);
+    console.log('After protocol removal:', cleanedShopUrl);
+    console.log('Contains colon?', cleanedShopUrl.includes(':'));
+    if (cleanedShopUrl.includes(':')) {
+      console.log('Splitting by colon, parts:', cleanedShopUrl.split(':'));
     }
-    console.log('🎯 UPDATED CLEANING - Final cleaned Shop URL:', shopUrl);
+    console.log('🎯 UPDATED CLEANING - Final cleaned Shop URL:', cleanedShopUrl);
     // Force recompilation check
     
     // Validate shop URL format
@@ -423,29 +424,28 @@ async function publishToShopify(product: any, apiKey: string, apiSecret: string)
     
     // Try direct REST API as fallback
     console.log('=== FALLBACK TO DIRECT REST ===');
-    return await publishToShopifyDirect(product, apiKey, apiSecret);
+    return await publishToShopifyDirect(product, apiKey, apiSecret, shopUrl);
   }
 }
 
 // Direct REST API fallback
-async function publishToShopifyDirect(product: any, apiKey: string, apiSecret: string) {
+async function publishToShopifyDirect(product: any, apiKey: string, apiSecret: string, shopUrl: string) {
   try {
     // Clean the shop URL and handle potential corruption
-    let shopUrl = apiSecret.replace(/^https?:\/\//, '').replace(/\/$/, '');
+    let cleanedShopUrl = shopUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
     
     // Fix corrupted URLs that might have port or extra characters like :your-32-
-    if (shopUrl.includes(':')) {
-      const parts = shopUrl.split(':');
-      shopUrl = parts[0]; // Take only the domain part before the colon
+    if (cleanedShopUrl.includes(':')) {
+      const parts = cleanedShopUrl.split(':');
+      cleanedShopUrl = parts[0]; // Take only the domain part before the colon
     }
     
     // Remove any non-domain characters (keep only letters, numbers, dots, hyphens)
-    shopUrl = shopUrl.replace(/[^a-zA-Z0-9.-]/g, '');
+    cleanedShopUrl = cleanedShopUrl.replace(/[^a-zA-Z0-9.-]/g, '');
     
-    console.log('Fallback - Raw apiSecret:', apiSecret);
-    console.log('Fallback - Cleaned Shop URL:', shopUrl);
-    
-    console.log('Fallback - Cleaned Shop URL:', shopUrl);
+    console.log('Fallback - Raw apiSecret length:', apiSecret?.length || 0);
+    console.log('Fallback - Raw shopUrl:', shopUrl);
+    console.log('Fallback - Cleaned Shop URL:', cleanedShopUrl);
     
     // Parse AI content (handle both string and object)
     const aiContent = typeof product.aiRewrittenContent === 'string' 

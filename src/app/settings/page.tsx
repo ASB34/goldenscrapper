@@ -16,6 +16,7 @@ export default function SettingsPage() {
   const [message, setMessage] = useState('');
   const [existingKeys, setExistingKeys] = useState({
     etsyApiKey: false,
+    shopifyStoreUrl: false,
     shopifyApiKey: false,
     shopifyApiSecret: false,
     shopifyWebhookSecret: false,
@@ -42,6 +43,7 @@ export default function SettingsPage() {
         const data = await response.json();
         setExistingKeys({
           etsyApiKey: !!data.settings.etsyApiKey,
+          shopifyStoreUrl: !!data.settings.shopifyStoreUrl,
           shopifyApiKey: !!data.settings.shopifyApiKey,
           shopifyApiSecret: !!data.settings.shopifyApiSecret,
           shopifyWebhookSecret: !!data.settings.shopifyWebhookSecret,
@@ -131,6 +133,15 @@ export default function SettingsPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              <ShopifyKeyInput
+                keyName="shopifyStoreUrl"
+                label="Store URL"
+                placeholder="yourstore.myshopify.com"
+                hasExisting={existingKeys.shopifyStoreUrl}
+                onUpdate={updateSingleKey}
+                type="text"
+              />
+              <Separator />
               <ShopifyKeyInput
                 keyName="shopifyApiKey"
                 label="API Key"
@@ -248,12 +259,13 @@ export default function SettingsPage() {
 }
 
 // Individual input components
-function ShopifyKeyInput({ keyName, label, placeholder, hasExisting, onUpdate }: {
+function ShopifyKeyInput({ keyName, label, placeholder, hasExisting, onUpdate, type = 'password' }: {
   keyName: string;
   label: string;
   placeholder: string;
   hasExisting: boolean;
   onUpdate: (key: string, value: string) => void;
+  type?: string;
 }) {
   const [value, setValue] = useState('');
   const [saving, setSaving] = useState(false);
@@ -274,7 +286,7 @@ function ShopifyKeyInput({ keyName, label, placeholder, hasExisting, onUpdate }:
       <div className="flex space-x-2">
         <Input
           id={keyName}
-          type="password"
+          type={type}
           placeholder={placeholder}
           value={value}
           onChange={(e) => setValue(e.target.value)}
@@ -283,9 +295,9 @@ function ShopifyKeyInput({ keyName, label, placeholder, hasExisting, onUpdate }:
           {saving ? 'Saving...' : hasExisting ? 'Update' : 'Save'}
         </Button>
       </div>
-      {hasExisting && (
+      {keyName === 'shopifyStoreUrl' && (
         <p className="text-sm text-muted-foreground">
-          Current key is set. Enter new value to update.
+          Example: mystore.myshopify.com (without https://)
         </p>
       )}
     </div>

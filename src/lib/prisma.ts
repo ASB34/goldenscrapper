@@ -266,11 +266,38 @@ export const prisma = {
       if (normalized.prestashop_store_url !== undefined) {
         normalized.prestashopStoreUrl = normalized.prestashop_store_url
       }
+      if (normalized.etsy_api_key !== undefined) {
+        normalized.etsyApiKey = normalized.etsy_api_key
+      }
+      if (normalized.etsy_shop_id !== undefined) {
+        normalized.etsyShopId = normalized.etsy_shop_id
+      }
+      if (normalized.shopify_store_url !== undefined) {
+        normalized.shopifyStoreUrl = normalized.shopify_store_url
+      }
+      if (normalized.shopify_api_key !== undefined) {
+        normalized.shopifyApiKey = normalized.shopify_api_key
+      }
+      if (normalized.shopify_api_secret !== undefined) {
+        normalized.shopifyApiSecret = normalized.shopify_api_secret
+      }
+      if (normalized.shopify_access_token !== undefined) {
+        normalized.shopifyAccessToken = normalized.shopify_access_token
+      }
       if (normalized.encryption_key !== undefined) {
         normalized.encryptionKey = normalized.encryption_key
       }
-      if (normalized.ai_provider !== undefined) {
-        normalized.aiProvider = normalized.ai_provider
+      if (normalized.settings !== undefined && typeof normalized.settings === 'string') {
+        try {
+          const settingsObj = JSON.parse(normalized.settings);
+          // Extract Shopify fields from settings
+          if (settingsObj.shopifyStoreUrl) normalized.shopifyStoreUrl = settingsObj.shopifyStoreUrl;
+          if (settingsObj.shopifyApiKey) normalized.shopifyApiKey = settingsObj.shopifyApiKey;
+          if (settingsObj.shopifyApiSecret) normalized.shopifyApiSecret = settingsObj.shopifyApiSecret;
+          if (settingsObj.shopifyAccessToken) normalized.shopifyAccessToken = settingsObj.shopifyAccessToken;
+        } catch (e) {
+          // Ignore JSON parse errors
+        }
       }
 
       return normalized
@@ -297,14 +324,29 @@ export const prisma = {
         supabaseData.prestashop_store_url = supabaseData.prestashopStoreUrl
         delete supabaseData.prestashopStoreUrl
       }
-      // Remove fields that don't exist in user_settings table
-      if (supabaseData.encryptionKey) {
-        delete supabaseData.encryptionKey
+      if (supabaseData.etsyApiKey) {
+        supabaseData.etsy_api_key = supabaseData.etsyApiKey
+        delete supabaseData.etsyApiKey
       }
-      // Persist aiProvider as ai_provider column in user_settings
-      if (supabaseData.aiProvider !== undefined) {
-        supabaseData.ai_provider = supabaseData.aiProvider
-        delete supabaseData.aiProvider
+      if (supabaseData.etsyShopId) {
+        supabaseData.etsy_shop_id = supabaseData.etsyShopId
+        delete supabaseData.etsyShopId
+      }
+      if (supabaseData.shopifyStoreUrl) {
+        supabaseData.shopify_store_url = supabaseData.shopifyStoreUrl
+        delete supabaseData.shopifyStoreUrl
+      }
+      if (supabaseData.shopifyApiKey) {
+        supabaseData.shopify_api_key = supabaseData.shopifyApiKey
+        delete supabaseData.shopifyApiKey
+      }
+      if (supabaseData.shopifyApiSecret) {
+        supabaseData.shopify_api_secret = supabaseData.shopifyApiSecret
+        delete supabaseData.shopifyApiSecret
+      }
+      if (supabaseData.shopifyAccessToken) {
+        supabaseData.shopify_access_token = supabaseData.shopifyAccessToken
+        delete supabaseData.shopifyAccessToken
       }
       
       const { data: result, error } = await supabaseAdmin
@@ -338,14 +380,29 @@ export const prisma = {
         supabaseData.prestashop_store_url = supabaseData.prestashopStoreUrl
         delete supabaseData.prestashopStoreUrl
       }
-      if (supabaseData.encryptionKey) {
-        // This field doesn't exist in user_settings table, remove it
-        delete supabaseData.encryptionKey
+      if (supabaseData.etsyApiKey) {
+        supabaseData.etsy_api_key = supabaseData.etsyApiKey
+        delete supabaseData.etsyApiKey
       }
-      // Persist aiProvider as ai_provider column in user_settings
-      if (supabaseData.aiProvider !== undefined) {
-        supabaseData.ai_provider = supabaseData.aiProvider
-        delete supabaseData.aiProvider
+      if (supabaseData.etsyShopId) {
+        supabaseData.etsy_shop_id = supabaseData.etsyShopId
+        delete supabaseData.etsyShopId
+      }
+      if (supabaseData.shopifyStoreUrl) {
+        supabaseData.shopify_store_url = supabaseData.shopifyStoreUrl
+        delete supabaseData.shopifyStoreUrl
+      }
+      if (supabaseData.shopifyApiKey) {
+        supabaseData.shopify_api_key = supabaseData.shopifyApiKey
+        delete supabaseData.shopifyApiKey
+      }
+      if (supabaseData.shopifyApiSecret) {
+        supabaseData.shopify_api_secret = supabaseData.shopifyApiSecret
+        delete supabaseData.shopifyApiSecret
+      }
+      if (supabaseData.shopifyAccessToken) {
+        supabaseData.shopify_access_token = supabaseData.shopifyAccessToken
+        delete supabaseData.shopifyAccessToken
       }
       
       const { data: result, error } = await supabaseAdmin
