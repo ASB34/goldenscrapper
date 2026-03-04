@@ -25,7 +25,8 @@ services:
 
   # Node.js Application Service
   app:
-    image: asb34/goldenscrapper:tagname
+    image: asb34/goldenscrapper:latest
+    pull_policy: always
     container_name: goldenupload-app
     depends_on:
       db:
