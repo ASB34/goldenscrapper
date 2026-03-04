@@ -54,6 +54,11 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=sha,prefix={{branch}}-
             type=raw,value=latest,enable={{is_default_branch}}
+      # Fallback tag in case metadata fails
+      - name: Set fallback tags
+        if: steps.meta.outputs.tags == ''
+        run: echo "TAGS=latest,${{ github.sha }}" >> $GITHUB_OUTPUT
+        id: fallback
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
@@ -61,7 +66,7 @@ jobs:
           context: .
           file: ./Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: ${{ steps.meta.outputs.tags || steps.fallback.outputs.TAGS || 'latest' }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
