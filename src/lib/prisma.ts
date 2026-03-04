@@ -1,496 +1,214 @@
-// This file maintains compatibility with existing Prisma calls
-// but redirects them to Supabase operations
+// PostgreSQL compatibility wrapper for existing Prisma calls
 
-import { supabaseAdmin } from './supabase'
+import { Pool } from 'pg';
 
-// Compatibility wrapper to ease migration from Prisma to Supabase
+// Create PostgreSQL connection pool
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
+
+// Compatibility wrapper to ease migration from Prisma to PostgreSQL
 export const prisma = {
   // Products operations
   product: {
     findUnique: async ({ where }: { where: { id: string } }) => {
-      const { data, error } = await supabaseAdmin
-        .from('products')
-        .select('*')
-        .eq('id', where.id)
-        .single()
-      
-      if (error) throw error
-      return data
+      const client = await pool.connect();
+      try {
+        const result = await client.query(
+          'SELECT * FROM products WHERE id = $1',
+          [where.id]
+        );
+        return result.rows[0] || null;
+      } finally {
+        client.release();
+      }
     },
     
     findMany: async (params?: any) => {
-      console.log('🔍 Prisma→Supabase: product.findMany called with params:', JSON.stringify(params, null, 2));
-      
-      let query = supabaseAdmin.from('products').select('*')
-      
-      if (params?.where?.userId) {
-        query = query.eq('user_id', params.where.userId)
+      const client = await pool.connect();
+      try {
+        let query = 'SELECT * FROM products WHERE 1=1';
+        const values: any[] = [];
+        let paramCount = 1;
+
+        if (params?.where?.userId) {
+          query += ` AND user_id = $${paramCount}`;
+          values.push(params.where.userId);
+          paramCount++;
+        }
+        if (params?.where?.user_id) {
+          query += ` AND user_id = $${paramCount}`;
+          values.push(params.where.user_id);
+          paramCount++;
+        }
+        if (params?.where?.etsyId) {
+          query += ` AND etsy_listing_id = $${paramCount}`;
+          values.push(params.where.etsyId);
+          paramCount++;
+        }
+        if (params?.where?.etsy_id) {
+          query += ` AND etsy_listing_id = $${paramCount}`;
+          values.push(params.where.etsy_id);
+          paramCount++;
+        }
+        if (params?.where?.url) {
+          query += ` AND source_url = $${paramCount}`;
+          values.push(params.where.url);
+          paramCount++;
+        }
+
+        if (params?.orderBy?.createdAt === 'desc') {
+          query += ' ORDER BY created_at DESC';
+        } else if (params?.orderBy?.createdAt) {
+          query += ' ORDER BY created_at ASC';
+        }
+
+        const result = await client.query(query, values);
+        return result.rows || [];
+      } finally {
+        client.release();
       }
-      if (params?.where?.user_id) {
-        query = query.eq('user_id', params.where.user_id)
-      }
-      if (params?.where?.etsyId) {
-        // Use etsy_listing_id field which exists in schema
-        query = query.eq('etsy_listing_id', params.where.etsyId)
-      }
-      if (params?.where?.etsy_id) {
-        // Use etsy_listing_id field which exists in schema
-        query = query.eq('etsy_listing_id', params.where.etsy_id)
-      }
-      if (params?.where?.url) {
-        // Use source_url field which exists in schema
-        query = query.eq('source_url', params.where.url)
-      }
-      if (params?.orderBy?.createdAt) {
-        const direction = params.orderBy.createdAt === 'desc' ? false : true
-        query = query.order('created_at', { ascending: direction })
-      }
-      
-      const { data, error } = await query
-      if (error) {
-        console.error('❌ Product findMany error:', error)
-        throw error
-      }
-      
-      console.log(`✅ Found ${data?.length || 0} products`);
-      return data || []
     },
-    
+
     create: async ({ data }: { data: any }) => {
-      // Convert field names for Supabase compatibility
-      const supabaseData = { ...data }
-      
-      // Map Prisma field names to Supabase column names for products
-      console.log('🔄 Prisma→Supabase mapping - Input data keys:', Object.keys(data));
-      if (supabaseData.userId) {
-        console.log('🔄 Mapping userId:', supabaseData.userId, '→ user_id');
-        supabaseData.user_id = supabaseData.userId
-        delete supabaseData.userId
+      const client = await pool.connect();
+      try {
+        const columns = Object.keys(data);
+        const values = Object.values(data);
+        const placeholders = values.map((_, i) => `$${i + 1}`).join(', ');
+        
+        const query = `INSERT INTO products (${columns.join(',')}) VALUES (${placeholders}) RETURNING *`;
+        const result = await client.query(query, values);
+        return result.rows[0];
+      } finally {
+        client.release();
       }
-      if (supabaseData.title) {
-        supabaseData.original_title = supabaseData.title
-        delete supabaseData.title
-      }
-      if (supabaseData.description) {
-        supabaseData.original_description = supabaseData.description
-        delete supabaseData.description
-      }
-      if (supabaseData.etsyId) {
-        // Store as etsy_listing_id since etsy_id column doesn't exist
-        supabaseData.etsy_listing_id = supabaseData.etsyId
-        delete supabaseData.etsyId
-      }
-      if (supabaseData.url) {
-        // Store as source_url since url column doesn't exist
-        supabaseData.source_url = supabaseData.url
-        delete supabaseData.url
-      }
-      if (supabaseData.originalTitle) {
-        supabaseData.original_title = supabaseData.originalTitle
-        supabaseData.title = supabaseData.originalTitle // Also map to title field
-        delete supabaseData.originalTitle
-      }
-      if (supabaseData.originalDescription) {
-        supabaseData.original_description = supabaseData.originalDescription
-        supabaseData.description = supabaseData.originalDescription // Also map to description field
-        delete supabaseData.originalDescription
-      }
-      if (supabaseData.originalKeywords) {
-        supabaseData.original_keywords = supabaseData.originalKeywords
-        delete supabaseData.originalKeywords
-      }
-      if (supabaseData.originalImages) {
-        supabaseData.original_images = supabaseData.originalImages
-        delete supabaseData.originalImages
-      }
-      if (supabaseData.originalVideos) {
-        supabaseData.original_videos = supabaseData.originalVideos
-        delete supabaseData.originalVideos
-      }
-      if (supabaseData.sourceUrl) {
-        supabaseData.source_url = supabaseData.sourceUrl
-        delete supabaseData.sourceUrl
-      }
-      if (supabaseData.xauPricing) {
-        supabaseData.xau_pricing = supabaseData.xauPricing
-        delete supabaseData.xauPricing
-      }
-      // Remove lastXauUpdate since this column doesn't exist in products table
-      if (supabaseData.lastXauUpdate) {
-        delete supabaseData.lastXauUpdate
-      }
-      if (supabaseData.aiRewrittenContent) {
-        supabaseData.ai_rewritten_content = supabaseData.aiRewrittenContent
-        delete supabaseData.aiRewrittenContent
-      }
-      if (supabaseData.isProcessed !== undefined) {
-        supabaseData.is_processed = supabaseData.isProcessed
-        delete supabaseData.isProcessed
-      }
-      if (supabaseData.isPublished !== undefined) {
-        supabaseData.is_published = supabaseData.isPublished
-        delete supabaseData.isPublished
-      }
-      if (supabaseData.publishedTo) {
-        supabaseData.published_to = supabaseData.publishedTo
-        delete supabaseData.publishedTo
-      }
-      
-      const { data: result, error } = await supabaseAdmin
-        .from('products')
-        .insert(supabaseData)
-        .select()
-        .single()
-      
-      if (error) {
-        console.error('Product create error:', error)
-        throw error
-      }
-      return result
     },
     
     update: async ({ where, data }: { where: { id: string }, data: any }) => {
-      // Convert field names for Supabase compatibility
-      const supabaseData = { ...data }
-      
-      // Map Prisma field names to Supabase column names for products
-      console.log('🔄 Prisma→Supabase mapping - Input data keys:', Object.keys(data));
-      if (supabaseData.title) {
-        supabaseData.original_title = supabaseData.title
-        delete supabaseData.title
+      const client = await pool.connect();
+      try {
+        const updates = Object.keys(data).map((key, i) => `${key} = $${i + 1}`).join(', ');
+        const values = [...Object.values(data), where.id];
+        
+        const query = `UPDATE products SET ${updates}, updated_at = NOW() WHERE id = $${values.length} RETURNING *`;
+        const result = await client.query(query, values);
+        return result.rows[0];
+      } finally {
+        client.release();
       }
-      if (supabaseData.description) {
-        supabaseData.original_description = supabaseData.description
-        delete supabaseData.description
-      }
-      if (supabaseData.originalTitle) {
-        supabaseData.original_title = supabaseData.originalTitle
-        supabaseData.title = supabaseData.originalTitle // Also map to title field
-        delete supabaseData.originalTitle
-      }
-      if (supabaseData.originalDescription) {
-        supabaseData.original_description = supabaseData.originalDescription
-        supabaseData.description = supabaseData.originalDescription // Also map to description field
-        delete supabaseData.originalDescription
-      }
-      if (supabaseData.originalKeywords) {
-        supabaseData.original_keywords = supabaseData.originalKeywords
-        delete supabaseData.originalKeywords
-      }
-      if (supabaseData.originalImages) {
-        supabaseData.original_images = supabaseData.originalImages
-        delete supabaseData.originalImages
-      }
-      if (supabaseData.originalVideos) {
-        supabaseData.original_videos = supabaseData.originalVideos
-        delete supabaseData.originalVideos
-      }
-      if (supabaseData.sourceUrl) {
-        supabaseData.source_url = supabaseData.sourceUrl
-        delete supabaseData.sourceUrl
-      }
-      if (supabaseData.xauPricing) {
-        supabaseData.xau_pricing = supabaseData.xauPricing
-        delete supabaseData.xauPricing
-      }
-      // Remove lastXauUpdate since this column doesn't exist in products table
-      if (supabaseData.lastXauUpdate) {
-        delete supabaseData.lastXauUpdate
-      }
-      if (supabaseData.aiRewrittenContent) {
-        supabaseData.ai_rewritten_content = supabaseData.aiRewrittenContent
-        delete supabaseData.aiRewrittenContent
-      }
-      if (supabaseData.isProcessed !== undefined) {
-        supabaseData.is_processed = supabaseData.isProcessed
-        delete supabaseData.isProcessed
-      }
-      if (supabaseData.isPublished !== undefined) {
-        supabaseData.is_published = supabaseData.isPublished
-        delete supabaseData.isPublished
-      }
-      if (supabaseData.publishedTo) {
-        supabaseData.published_to = supabaseData.publishedTo
-        delete supabaseData.publishedTo
-      }
-      
-      const { data: result, error } = await supabaseAdmin
-        .from('products')
-        .update(supabaseData)
-        .eq('id', where.id)
-        .select()
-        .single()
-      
-      if (error) {
-        console.error('Product update error:', error)
-        throw error
-      }
-      return result
     },
     
     delete: async ({ where }: { where: { id: string } }) => {
-      const { error } = await supabaseAdmin
-        .from('products')
-        .delete()
-        .eq('id', where.id)
-      
-      if (error) throw error
-      return { id: where.id }
+      const client = await pool.connect();
+      try {
+        await client.query('DELETE FROM products WHERE id = $1', [where.id]);
+        return { id: where.id };
+      } finally {
+        client.release();
+      }
     }
   },
 
-  // User settings operations (replacing apiKeys table)
+  // User settings operations
   apiKeys: {
     findFirst: async (params?: any) => {
-      let query = supabaseAdmin.from('user_settings').select('*')
-      
-      if (params?.where?.userId) {
-        query = query.eq('user_id', params.where.userId)
-      }
-      
-      const { data, error } = await query.limit(1).single()
-      
-      if (error && error.code !== 'PGRST116') throw error
+      const client = await pool.connect();
+      try {
+        let query = 'SELECT * FROM user_settings WHERE 1=1';
+        const values: any[] = [];
 
-      if (!data) return data
-
-      // Normalize snake_case columns to camelCase for the application
-      const normalized: any = { ...data }
-      if (normalized.openai_api_key !== undefined) {
-        normalized.openaiApiKey = normalized.openai_api_key
-        // keep original for debugging if needed
-      }
-      if (normalized.prestashop_api_key !== undefined) {
-        normalized.prestashopApiKey = normalized.prestashop_api_key
-      }
-      if (normalized.prestashop_store_url !== undefined) {
-        normalized.prestashopStoreUrl = normalized.prestashop_store_url
-      }
-      if (normalized.etsy_api_key !== undefined) {
-        normalized.etsyApiKey = normalized.etsy_api_key
-      }
-      if (normalized.etsy_shop_id !== undefined) {
-        normalized.etsyShopId = normalized.etsy_shop_id
-      }
-      if (normalized.shopify_store_url !== undefined) {
-        normalized.shopifyStoreUrl = normalized.shopify_store_url
-      }
-      if (normalized.shopify_api_key !== undefined) {
-        normalized.shopifyApiKey = normalized.shopify_api_key
-      }
-      if (normalized.shopify_api_secret !== undefined) {
-        normalized.shopifyApiSecret = normalized.shopify_api_secret
-      }
-      if (normalized.shopify_access_token !== undefined) {
-        normalized.shopifyAccessToken = normalized.shopify_access_token
-      }
-      if (normalized.encryption_key !== undefined) {
-        normalized.encryptionKey = normalized.encryption_key
-      }
-      if (normalized.settings !== undefined && typeof normalized.settings === 'string') {
-        try {
-          const settingsObj = JSON.parse(normalized.settings);
-          // Extract Shopify fields from settings
-          if (settingsObj.shopifyStoreUrl) normalized.shopifyStoreUrl = settingsObj.shopifyStoreUrl;
-          if (settingsObj.shopifyApiKey) normalized.shopifyApiKey = settingsObj.shopifyApiKey;
-          if (settingsObj.shopifyApiSecret) normalized.shopifyApiSecret = settingsObj.shopifyApiSecret;
-          if (settingsObj.shopifyAccessToken) normalized.shopifyAccessToken = settingsObj.shopifyAccessToken;
-        } catch (e) {
-          // Ignore JSON parse errors
+        if (params?.where?.userId) {
+          query += ` AND user_id = $1`;
+          values.push(params.where.userId);
         }
-      }
 
-      return normalized
+        query += ' LIMIT 1';
+        const result = await client.query(query, values);
+        return result.rows[0] || null;
+      } finally {
+        client.release();
+      }
     },
     
     create: async ({ data }: { data: any }) => {
-      // Convert field names for Supabase compatibility
-      const supabaseData = { ...data }
-      
-      // Map Prisma field names to Supabase column names
-      if (supabaseData.userId) {
-        supabaseData.user_id = supabaseData.userId
-        delete supabaseData.userId
+      const client = await pool.connect();
+      try {
+        const columns = Object.keys(data);
+        const values = Object.values(data);
+        const placeholders = values.map((_, i) => `$${i + 1}`).join(', ');
+        
+        const query = `INSERT INTO user_settings (${columns.join(',')}) VALUES (${placeholders}) RETURNING *`;
+        const result = await client.query(query, values);
+        return result.rows[0];
+      } finally {
+        client.release();
       }
-      if (supabaseData.openaiApiKey) {
-        supabaseData.openai_api_key = supabaseData.openaiApiKey
-        delete supabaseData.openaiApiKey
-      }
-      if (supabaseData.prestashopApiKey) {
-        supabaseData.prestashop_api_key = supabaseData.prestashopApiKey
-        delete supabaseData.prestashopApiKey
-      }
-      if (supabaseData.prestashopStoreUrl) {
-        supabaseData.prestashop_store_url = supabaseData.prestashopStoreUrl
-        delete supabaseData.prestashopStoreUrl
-      }
-      if (supabaseData.etsyApiKey) {
-        supabaseData.etsy_api_key = supabaseData.etsyApiKey
-        delete supabaseData.etsyApiKey
-      }
-      if (supabaseData.etsyShopId) {
-        supabaseData.etsy_shop_id = supabaseData.etsyShopId
-        delete supabaseData.etsyShopId
-      }
-      if (supabaseData.shopifyStoreUrl) {
-        supabaseData.shopify_store_url = supabaseData.shopifyStoreUrl
-        delete supabaseData.shopifyStoreUrl
-      }
-      if (supabaseData.shopifyApiKey) {
-        supabaseData.shopify_api_key = supabaseData.shopifyApiKey
-        delete supabaseData.shopifyApiKey
-      }
-      if (supabaseData.shopifyApiSecret) {
-        supabaseData.shopify_api_secret = supabaseData.shopifyApiSecret
-        delete supabaseData.shopifyApiSecret
-      }
-      if (supabaseData.shopifyAccessToken) {
-        supabaseData.shopify_access_token = supabaseData.shopifyAccessToken
-        delete supabaseData.shopifyAccessToken
-      }
-      
-      const { data: result, error } = await supabaseAdmin
-        .from('user_settings')
-        .insert(supabaseData)
-        .select()
-        .single()
-      
-      if (error) throw error
-      return result
     },
     
     update: async ({ where, data }: { where: { id: string }, data: any }) => {
-      // Convert field names for Supabase compatibility
-      const supabaseData = { ...data }
-      
-      // Map Prisma field names to Supabase column names
-      if (supabaseData.userId) {
-        supabaseData.user_id = supabaseData.userId
-        delete supabaseData.userId
+      const client = await pool.connect();
+      try {
+        const updates = Object.keys(data).map((key, i) => `${key} = $${i + 1}`).join(', ');
+        const values = [...Object.values(data), where.id];
+        
+        const query = `UPDATE user_settings SET ${updates}, updated_at = NOW() WHERE id = $${values.length} RETURNING *`;
+        const result = await client.query(query, values);
+        return result.rows[0];
+      } finally {
+        client.release();
       }
-      if (supabaseData.openaiApiKey) {
-        supabaseData.openai_api_key = supabaseData.openaiApiKey
-        delete supabaseData.openaiApiKey
-      }
-      if (supabaseData.prestashopApiKey) {
-        supabaseData.prestashop_api_key = supabaseData.prestashopApiKey
-        delete supabaseData.prestashopApiKey
-      }
-      if (supabaseData.prestashopStoreUrl) {
-        supabaseData.prestashop_store_url = supabaseData.prestashopStoreUrl
-        delete supabaseData.prestashopStoreUrl
-      }
-      if (supabaseData.etsyApiKey) {
-        supabaseData.etsy_api_key = supabaseData.etsyApiKey
-        delete supabaseData.etsyApiKey
-      }
-      if (supabaseData.etsyShopId) {
-        supabaseData.etsy_shop_id = supabaseData.etsyShopId
-        delete supabaseData.etsyShopId
-      }
-      if (supabaseData.shopifyStoreUrl) {
-        supabaseData.shopify_store_url = supabaseData.shopifyStoreUrl
-        delete supabaseData.shopifyStoreUrl
-      }
-      if (supabaseData.shopifyApiKey) {
-        supabaseData.shopify_api_key = supabaseData.shopifyApiKey
-        delete supabaseData.shopifyApiKey
-      }
-      if (supabaseData.shopifyApiSecret) {
-        supabaseData.shopify_api_secret = supabaseData.shopifyApiSecret
-        delete supabaseData.shopifyApiSecret
-      }
-      if (supabaseData.shopifyAccessToken) {
-        supabaseData.shopify_access_token = supabaseData.shopifyAccessToken
-        delete supabaseData.shopifyAccessToken
-      }
-      
-      const { data: result, error } = await supabaseAdmin
-        .from('user_settings')
-        .update(supabaseData)
-        .eq('id', where.id)
-        .select()
-        .single()
-      
-      if (error) throw error
-      return result
     },
     
     upsert: async ({ where, create, update }: any) => {
-      // First try to find existing
-      const { data: existing } = await supabaseAdmin
-        .from('user_settings')
-        .select('*')
-        .eq('user_id', where.user_id)
-        .single()
-      
-      if (existing) {
-        // Update existing
-        const { data: result, error } = await supabaseAdmin
-          .from('user_settings')
-          .update(update)
-          .eq('user_id', where.user_id)
-          .select()
-          .single()
-        
-        if (error) throw error
-        return result
-      } else {
-        // Create new
-        const { data: result, error } = await supabaseAdmin
-          .from('user_settings')
-          .insert(create)
-          .select()
-          .single()
-        
-        if (error) throw error
-        return result
+      const client = await pool.connect();
+      try {
+        const result = await client.query(
+          `INSERT INTO user_settings (${Object.keys(create).join(',')}) 
+           VALUES (${Object.values(create).map((_, i) => `$${i + 1}`).join(', ')})
+           ON CONFLICT (user_id) DO UPDATE SET ${Object.keys(update).map((key, i) => `${key} = $${i + 1}`).join(', ')}
+           RETURNING *`,
+          [...Object.values(create), ...Object.values(update)]
+        );
+        return result.rows[0];
+      } finally {
+        client.release();
       }
-    }
-  },
-
-  // User operations (if needed)
-  user: {
-    findUnique: async ({ where }: { where: { username?: string, id?: string } }) => {
-      // This is handled by Supabase Auth, but keeping for compatibility
-      return null
-    },
-    
-    create: async ({ data }: { data: any }) => {
-      // This is handled by Supabase Auth, but keeping for compatibility
-      return null
     }
   },
 
   // XAU rates operations
   xauRates: {
     findMany: async (params?: any) => {
-      let query = supabaseAdmin.from('xau_rates').select('*')
-      
-      // Remove is_active filter since this column doesn't exist
-      // if (params?.where?.is_active) {
-      //   query = query.eq('is_active', params.where.is_active)
-      // }
-      
-      const { data, error } = await query.order('fetched_at', { ascending: false })
-      if (error) throw error
-      return data || []
+      const client = await pool.connect();
+      try {
+        const result = await client.query(
+          'SELECT * FROM xau_rates ORDER BY fetched_at DESC'
+        );
+        return result.rows || [];
+      } finally {
+        client.release();
+      }
     },
     
     create: async ({ data }: { data: any }) => {
-      const { data: result, error } = await supabaseAdmin
-        .from('xau_rates')
-        .insert(data)
-        .select()
-        .single()
-      
-      if (error) throw error
-      return result
+      const client = await pool.connect();
+      try {
+        const columns = Object.keys(data);
+        const values = Object.values(data);
+        const placeholders = values.map((_, i) => `$${i + 1}`).join(', ');
+        
+        const query = `INSERT INTO xau_rates (${columns.join(',')}) VALUES (${placeholders}) RETURNING *`;
+        const result = await client.query(query, values);
+        return result.rows[0];
+      } finally {
+        client.release();
+      }
     }
   },
 
-  // Disconnect method (no-op for Supabase)
+  // Disconnect method
   $disconnect: async () => {
-    // No need to disconnect from Supabase
+    await pool.end();
   }
 }
