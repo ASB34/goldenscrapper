@@ -6,15 +6,15 @@ FROM base AS deps
 WORKDIR /app
 # Install build dependencies for native modules (pg)
 RUN apk add --no-cache python3 make g++
-COPY package*.json ./
-RUN npm ci --only=production
+COPY package*.json .npmrc ./
+RUN npm install --omit=dev --legacy-peer-deps
 
 FROM base AS builder
 WORKDIR /app
 # Install build dependencies for native modules
 RUN apk add --no-cache python3 make g++
-COPY package*.json ./
-RUN npm ci
+COPY package*.json .npmrc ./
+RUN npm install --legacy-peer-deps
 COPY . .
 RUN npm run build
 
