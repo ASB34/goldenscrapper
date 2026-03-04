@@ -2,6 +2,26 @@
 
 import { Pool } from 'pg';
 
+// helper to convert camelCase keys into snake_case
+function camelToSnake(str: string) {
+  return str.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+}
+
+function mapKeysToSnake(obj: any): any {
+  if (Array.isArray(obj)) {
+    return obj.map(mapKeysToSnake);
+  }
+  if (obj !== null && typeof obj === 'object' && !(obj instanceof Date)) {
+    const result: any = {};
+    for (const key of Object.keys(obj)) {
+      const value = obj[key];
+      result[camelToSnake(key)] = mapKeysToSnake(value);
+    }
+    return result;
+  }
+  return obj;
+}
+
 // Create PostgreSQL connection pool
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -71,10 +91,12 @@ export const prisma = {
     },
 
     create: async ({ data }: { data: any }) => {
+      // convert camelCase keys to snake_case before inserting
+      const snakeData = mapKeysToSnake(data);
       const client = await pool.connect();
       try {
-        const columns = Object.keys(data);
-        const values = Object.values(data);
+        const columns = Object.keys(snakeData);
+        const values = Object.values(snakeData);
         const placeholders = values.map((_, i) => `$${i + 1}`).join(', ');
         
         const query = `INSERT INTO products (${columns.join(',')}) VALUES (${placeholders}) RETURNING *`;
@@ -86,10 +108,12 @@ export const prisma = {
     },
     
     update: async ({ where, data }: { where: { id: string }, data: any }) => {
+      // convert camelCase keys to snake_case before updating
+      const snakeData = mapKeysToSnake(data);
       const client = await pool.connect();
       try {
-        const updates = Object.keys(data).map((key, i) => `${key} = $${i + 1}`).join(', ');
-        const values = [...Object.values(data), where.id];
+        const updates = Object.keys(snakeData).map((key, i) => `${key} = $${i + 1}`).join(', ');
+        const values = [...Object.values(snakeData), where.id];
         
         const query = `UPDATE products SET ${updates}, updated_at = NOW() WHERE id = $${values.length} RETURNING *`;
         const result = await client.query(query, values);
@@ -132,10 +156,11 @@ export const prisma = {
     },
     
     create: async ({ data }: { data: any }) => {
+      const snakeData = mapKeysToSnake(data);
       const client = await pool.connect();
       try {
-        const columns = Object.keys(data);
-        const values = Object.values(data);
+        const columns = Object.keys(snakeData);
+        const values = Object.values(snakeData);
         const placeholders = values.map((_, i) => `$${i + 1}`).join(', ');
         
         const query = `INSERT INTO user_settings (${columns.join(',')}) VALUES (${placeholders}) RETURNING *`;
@@ -147,10 +172,11 @@ export const prisma = {
     },
     
     update: async ({ where, data }: { where: { id: string }, data: any }) => {
+      const snakeData = mapKeysToSnake(data);
       const client = await pool.connect();
       try {
-        const updates = Object.keys(data).map((key, i) => `${key} = $${i + 1}`).join(', ');
-        const values = [...Object.values(data), where.id];
+        const updates = Object.keys(snakeData).map((key, i) => `${key} = $${i + 1}`).join(', ');
+        const values = [...Object.values(snakeData), where.id];
         
         const query = `UPDATE user_settings SET ${updates}, updated_at = NOW() WHERE id = $${values.length} RETURNING *`;
         const result = await client.query(query, values);

@@ -24,7 +24,7 @@ export async function GET() {
       orderBy: { createdAt: 'desc' }
     });
 
-    // Normalize snake_case rows from Supabase into camelCase shape expected by client
+    // Normalize snake_case rows from database into camelCase shape expected by client
     const normalizeProductRow = (row: any) => ({
       id: row.id,
       etsyId: row.etsy_id ?? row.etsyId,

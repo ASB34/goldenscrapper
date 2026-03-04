@@ -1,42 +1,25 @@
 require('dotenv').config({ path: '.env.local' });
-const { createClient } = require('@supabase/supabase-js');
+const { Pool } = require('pg');
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
 async function checkDatabase() {
   try {
-    console.log('🔍 Checking Supabase connection...');
-
-    // Check products table
-    const { data: products, error: productsError } = await supabase
-      .from('products')
-      .select('id, original_title, original_description')
-      .limit(1);
-
-    if (productsError) {
-      console.error('❌ Products table error:', productsError);
-    } else {
-      console.log('✅ Products table exists');
-      console.log('📊 Found', products?.length || 0, 'sample products');
+    console.log('🔍 Checking PostgreSQL connection...');
+    const client = await pool.connect();
+    try {
+      // Simple check: select a row from products
+      const res = await client.query('SELECT id FROM products LIMIT 1');
+      console.log('✅ Products table exists; sample rows:', res.rowCount);
+    } catch (err) {
+      console.error('❌ Query error (products table?):', err.message);
+    } finally {
+      client.release();
     }
-
-    // Check if original_description column exists by trying to select it
-    const { data: testData, error: testError } = await supabase
-      .from('products')
-      .select('original_description')
-      .limit(1);
-
-    if (testError) {
-      console.error('❌ original_description column error:', testError.message);
-    } else {
-      console.log('✅ original_description column exists');
-    }
-
-  } catch (error) {
-    console.error('❌ Database connection error:', error.message);
+  } catch (err) {
+    console.error('❌ Database connection error:', err.message);
+  } finally {
+    await pool.end();
   }
 }
 

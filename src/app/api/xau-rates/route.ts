@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
       }
     }
     
-    // Normalize rows (support both camelCase and snake_case coming from Supabase)
+    // Normalize rows (support both camelCase and snake_case from the database)
     const normalize = (r: any) => {
       const currency = r.currency ?? r?.currency;
       const rate = r.rate ?? r?.rate_per_gram ?? r?.ratePerGram ?? r?.rate_per_oz ?? r?.ratePerOz;

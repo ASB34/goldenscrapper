@@ -1,32 +1,8 @@
-import { createClient } from '@supabase/supabase-js'
-import { createServerClient } from '@supabase/ssr'
-
-// Types for our database tables
-export interface Product {
-  id: string
-  etsy_id?: string
-  original_title: string
-  original_description: string
-  original_keywords?: any
-  original_images?: any
-  original_videos?: any
-  pricing?: any
-  specifications?: any
-  variants?: any
-  category?: string
-  vendor?: string
-  sku?: string
-  source_url?: string
-  xau_pricing?: any
-  last_xau_update?: string
-  ai_rewritten_content?: any
-  is_processed: boolean
-  is_published: boolean
-  published_to?: any
-  created_at: string
-  updated_at: string
-  user_id: string
-}
+// DEPRECATED: Supabase client code removed
+// The application now uses a PostgreSQL database and custom
+// Prisma-style wrapper (`src/lib/prisma.ts`).
+// These files are retained for historical reference but are
+// no longer imported or executed anywhere in the codebase.
 
 export interface PublishingLog {
   id: string
@@ -63,41 +39,3 @@ export interface XauRate {
   created_at: string
 }
 
-// Create Supabase client for client-side operations
-export const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
-
-// Create Supabase admin client for server-side operations
-export const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  }
-)
-
-// Server client factory for SSR
-export const createSupabaseServerClient = (cookies: any) => {
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return cookies.get(name)?.value
-        },
-        set(name: string, value: string, options: any) {
-          cookies.set(name, value, options)
-        },
-        remove(name: string, options: any) {
-          cookies.set(name, '', { ...options, maxAge: 0 })
-        },
-      },
-    }
-  )
-}
