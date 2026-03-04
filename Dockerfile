@@ -4,11 +4,15 @@ RUN apk add --no-cache curl
 
 FROM base AS deps
 WORKDIR /app
+# Install build dependencies for native modules (pg)
+RUN apk add --no-cache python3 make g++
 COPY package*.json ./
 RUN npm ci --only=production
 
 FROM base AS builder
 WORKDIR /app
+# Install build dependencies for native modules
+RUN apk add --no-cache python3 make g++
 COPY package*.json ./
 RUN npm ci
 COPY . .
